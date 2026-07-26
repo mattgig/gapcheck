@@ -6,9 +6,9 @@ A question behaviour plugin for Moodle 5.x that gives students immediate visual 
 
 ## How it works
 
-1. When the question is rendered, the server computes salted HMAC-SHA256 hashes of all correct answer alternatives and embeds them as a JSON data attribute. The salt is unique per user, attempt, and question slot.
-2. The client-side JavaScript hashes the student's input on each keystroke, blur, or value change and compares it against the embedded hashes.
-3. CSS classes are applied to the input field — green (correct), amber (partial), red (incorrect). No inline styles; all appearance is controlled via CSS custom properties.
+1. When the question is rendered, the server computes salted HMAC-SHA256 hashes of all correct answer alternatives and embeds them as a JSON data attribute. The salt (`userid|usageid|slot`) is unique per user, attempt, and question slot. On insecure HTTP the module silently skips — `crypto.subtle` is unavailable, no error is thrown, and no feedback is shown.
+2. The client-side JavaScript hashes the student's input and compares it against the embedded hashes. Validation fires on `blur`, `change`, and debounced `input` (400 ms). Programmatic value writes (gapfill drag-and-drop, JS `.value = ...`) are intercepted server-side via a single `HTMLInputElement.prototype.value` setter + `WeakMap<Element, {data, salt}>` lookup — no per-element descriptors needed. `<select>` elements are also validated on `change`.
+3. CSS classes are applied to the input field — `.gapcheck-correct` (green), `.gapcheck-partial` (amber), `.gapcheck-incorrect` (red). No inline styles; all appearance is controlled via CSS custom properties. The renderer also injects an inline `<style>` block (via a static flag) so the default styles work in every context — preview, embed, and quiz — without depending on `styles.css` loading order.
 
 No data is sent back to the server for the visual check. The server never knows whether the student saw green, amber, or red — the behaviour only grades the attempt when the student submits.
 
@@ -16,7 +16,7 @@ No data is sent back to the server for the visual check. The server never knows 
 
 | Question type | Status | Details |
 |---|---|---|
-| **Cloze (embedded answers)** | Full | Short answer, numerical, multichoice single (MC/MCS/MCV/MCH) subquestions. Matching and multichoice multi are not supported. |
+| **Cloze (embedded answers)** | Full | Short answer, numerical, multichoice single (MC/MCS/MCV/MCH) subquestions. MCS uses `get_correct_response()` which returns the correct position in the shuffled order. Matching and multichoice multi are not supported. |
 | **Gapfill** (`qtype_gapfill`) | Full | Drag-and-drop and text input gaps. Programmatic value changes are intercepted. |
 | **Formulas** (`qtype_formulas`) | Full | Multi-field numerical answers with absolute/relative tolerance from the grading criterion. |
 | **Short answer** (standalone) | Full | Case-sensitive and case-insensitive. Pipe-delimited alternatives. |
@@ -58,6 +58,10 @@ Set colours per item or per section by scoping to a specific quiz or course:
 }
 ```
 
+## Accessibility
+
+When feedback is shown, the input's `aria-invalid` attribute is set to `"false"` for correct/partial and `"true"` for incorrect. A tooltip (`title`) is also set on each input, drawing translatable text from the language strings `correct`, `partiallycorrect`, and `incorrect`. Text colour and contrast remain the student's theme default — only background colour and border change.
+
 ## Settings
 
 No plugin settings page. The behaviour can be selected per quiz or set as default via **Site administration → Plugins → Question behaviours → Manage question behaviours**.
@@ -76,7 +80,19 @@ With debug enabled, every hash comparison is logged to the console showing the f
 
 ## Privacy
 
-This plugin stores no personal data. It embeds salted hashes of correct answers in the page HTML, which are discarded when the page is unloaded. The salt uses the user ID, attempt usage ID, and question slot — all of which are already part of normal Moodle operation.
+This plugin stores no personal data and uses no custom database tables (`\core_privacy\local\metadata\null_provider`). It embeds salted hashes of correct answers in the page HTML, which are discarded when the page is unloaded. The salt uses the user ID, attempt usage ID, and question slot — all of which are already part of normal Moodle operation.
+
+## Security
+
+| Posture | Value |
+|---|---|
+| MDL Shield grade | C |
+| Critical findings | 0 |
+| High findings | 1 (answer disclosure by design — excluded per review) |
+| Medium findings | 0 |
+| Low findings | 4 (all fixed) |
+
+The plugin never exposes plaintext correct answers beyond what the question type already provides for its own rendering. Only salted HMAC-SHA256 hashes are embedded in the page. The server never persists the student's per-gap visual results — grading only occurs on submit/finish.
 
 ## Requirements
 
