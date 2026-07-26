@@ -8,13 +8,13 @@ defined('MOODLE_INTERNAL') || die();
  * Tests cover:
  *   - Standard behaviour transitions (submit, save, finish)
  *   - Salt consistency and hash determinism
- *   - Structured hash data output (full/partial credit separation)
- *   - Numerical tolerance detection
- *   - Pipe-delimited fallback alternatives
- *   - Wildcard/empty answer skipping
+ *   - Structured hash data output from process_answer_rows()
+ *   - Numerical tolerance detection in process_answer_rows()
+ *   - Pipe-delimited fallback_hash() handling
+ *   - Wildcard/empty answer skipping in process_answer_rows()
  *
  * @package   qbehaviour_gapcheck
- * @copyright 2026 Your Name
+ * @copyright 2026 Matthias Giger
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class qbehaviour_gapcheck_behaviour_test extends qbehaviour_walkthrough_test_base {
@@ -105,27 +105,95 @@ class qbehaviour_gapcheck_behaviour_test extends qbehaviour_walkthrough_test_bas
         $this->assertEquals($salt1, $salt2);
     }
 
-    public function test_hash_consistency() {
+    public function test_process_answer_rows_full_and_partial() {
+        global $PAGE;
         $salt = '1|99|1';
-        $hash1 = hash_hmac('sha256', 'Berlin', $salt);
-        $hash2 = hash_hmac('sha256', 'Berlin', $salt);
 
-        $this->assertEquals($hash1, $hash2);
+        $row1 = new question_answer('Paris', 1.0, '');
+        $row2 = new question_answer('paris', 0.5, '');
+        $row3 = new question_answer('Paris, France', 1.0, '');
+        $rows = [$row1, $row2, $row3];
+
+        $renderer = new qbehaviour_gapcheck_renderer($PAGE, '');
+        $rc = new ReflectionClass($renderer);
+        $method = $rc->getMethod('process_answer_rows');
+        $method->setAccessible(true);
+        $entry = $method->invoke($renderer, $rows, $salt);
+
+        $this->assertCount(2, $entry['h']);
+        $this->assertCount(1, $entry['p']);
+        $this->assertContains(hash_hmac('sha256', 'Paris', $salt), $entry['h']);
+        $this->assertContains(hash_hmac('sha256', 'Paris, France', $salt), $entry['h']);
+        $this->assertContains(hash_hmac('sha256', 'paris', $salt), $entry['p']);
     }
 
-    public function test_different_salts_different_hashes() {
-        $hash1 = hash_hmac('sha256', 'Paris', '1|99|1');
-        $hash2 = hash_hmac('sha256', 'Paris', '2|99|1');
+    public function test_process_answer_rows_numerical_tolerance() {
+        global $PAGE;
+        $salt = '1|99|1';
 
-        $this->assertNotEquals($hash1, $hash2);
+        $row1 = new question_answer('3.14', 1.0, '');
+        $row1->tolerance = 0.01;
+        $row1->tolerancetype = 0;
+        $rows = [$row1];
+
+        $renderer = new qbehaviour_gapcheck_renderer($PAGE, '');
+        $rc = new ReflectionClass($renderer);
+        $method = $rc->getMethod('process_answer_rows');
+        $method->setAccessible(true);
+        $entry = $method->invoke($renderer, $rows, $salt);
+
+        $this->assertCount(1, $entry['n']);
+        $this->assertEquals('3.14', $entry['n'][0]['v']);
+        $this->assertEquals(0.01, $entry['n'][0]['t']);
+        $this->assertEquals(0, $entry['n'][0]['k']);
+        $this->assertEquals(1.0, $entry['n'][0]['f']);
+        $this->assertContains(hash_hmac('sha256', '3.14', $salt), $entry['h']);
     }
 
-    public function test_different_values_different_hashes() {
+    public function test_process_answer_rows_skips_wildcard() {
+        global $PAGE;
         $salt = '1|99|1';
-        $hash1 = hash_hmac('sha256', 'Paris', $salt);
-        $hash2 = hash_hmac('sha256', 'London', $salt);
 
-        $this->assertNotEquals($hash1, $hash2);
+        $row1 = new question_answer('Paris', 1.0, '');
+        $row2 = new question_answer('*', 0.0, '');
+        $rows = [$row1, $row2];
+
+        $renderer = new qbehaviour_gapcheck_renderer($PAGE, '');
+        $rc = new ReflectionClass($renderer);
+        $method = $rc->getMethod('process_answer_rows');
+        $method->setAccessible(true);
+        $entry = $method->invoke($renderer, $rows, $salt);
+
+        $this->assertCount(1, $entry['h']);
+        $this->assertContains(hash_hmac('sha256', 'Paris', $salt), $entry['h']);
+    }
+
+    public function test_fallback_hash_single() {
+        global $PAGE;
+        $salt = '1|99|1';
+
+        $renderer = new qbehaviour_gapcheck_renderer($PAGE, '');
+        $rc = new ReflectionClass($renderer);
+        $method = $rc->getMethod('fallback_hash');
+        $method->setAccessible(true);
+        $entry = $method->invoke($renderer, 'Berlin', $salt);
+
+        $this->assertEquals(['h' => [hash_hmac('sha256', 'Berlin', $salt)]], $entry);
+    }
+
+    public function test_fallback_hash_pipe() {
+        global $PAGE;
+        $salt = '1|99|1';
+
+        $renderer = new qbehaviour_gapcheck_renderer($PAGE, '');
+        $rc = new ReflectionClass($renderer);
+        $method = $rc->getMethod('fallback_hash');
+        $method->setAccessible(true);
+        $entry = $method->invoke($renderer, 'Berlin|London', $salt);
+
+        $this->assertCount(2, $entry['h']);
+        $this->assertContains(hash_hmac('sha256', 'Berlin', $salt), $entry['h']);
+        $this->assertContains(hash_hmac('sha256', 'London', $salt), $entry['h']);
     }
 
     public function test_renderer_output_has_structured_format() {
@@ -151,137 +219,28 @@ class qbehaviour_gapcheck_behaviour_test extends qbehaviour_walkthrough_test_bas
         }
     }
 
-    public function test_structured_data_with_full_and_partial_credit() {
-        $salt = '1|99|1';
+    public function test_renderer_output_contains_correct_hash() {
+        $this->quba->set_preferred_behaviour('gapcheck');
 
-        $row1 = new question_answer('Paris', 1.0, '');
-        $row2 = new question_answer('paris', 0.5, '');
-        $row3 = new question_answer('Paris, France', 1.0, '');
+        $sa = test_question_maker::make_question('shortanswer');
+        $this->start_attempt_at_question($sa, 1);
 
-        $rows = [$row1, $row2, $row3];
+        $displayoptions = new question_display_options();
+        $html = $this->quba->render_question(1, $displayoptions);
 
-        $entry = ['h' => [], 'p' => []];
-        foreach ($rows as $row) {
-            $fraction = (float)$row->fraction;
-            if ($fraction <= 0) {
-                continue;
-            }
-            $hash = hash_hmac('sha256', $row->answer, $salt);
-            if ($fraction >= 1.0) {
-                $entry['h'][] = $hash;
-            } else {
-                $entry['p'][] = $hash;
-            }
-        }
+        preg_match('/data-pergap-hashes="([^"]+)"/', $html, $matches);
+        $data = json_decode(html_entity_decode($matches[1]), true);
 
-        $entry['h'] = array_values(array_unique($entry['h']));
-        $entry['p'] = array_values(array_unique($entry['p']));
+        $salt = '0|' . $this->quba->get_id() . '|1';
+        $expected = hash_hmac('sha256', 'frog', $salt);
 
-        $this->assertCount(2, $entry['h']);
-        $this->assertCount(1, $entry['p']);
-        $this->assertContains(hash_hmac('sha256', 'Paris', $salt), $entry['h']);
-        $this->assertContains(hash_hmac('sha256', 'Paris, France', $salt), $entry['h']);
-        $this->assertContains(hash_hmac('sha256', 'paris', $salt), $entry['p']);
-    }
-
-    public function test_numerical_tolerance_detection() {
-        $salt = '1|99|1';
-
-        $row1 = new question_answer('3.14', 1.0, '');
-        $row1->tolerance = 0.01;
-        $row1->tolerancetype = 0;
-
-        $entry = ['h' => [], 'p' => [], 'n' => []];
-        $fraction = (float)$row1->fraction;
-        if ($fraction > 0) {
-            $answertext = $row1->answer;
-            $hash = hash_hmac('sha256', $answertext, $salt);
-            $tolerance = isset($row1->tolerance) ? (float)$row1->tolerance : 0;
-            $tolerancetype = isset($row1->tolerancetype) ? (int)$row1->tolerancetype : 0;
-
-            if ($tolerance > 0 && is_numeric($answertext)) {
-                $entry['n'][] = [
-                    'v' => $answertext,
-                    't' => $tolerance,
-                    'k' => $tolerancetype,
-                    'f' => $fraction,
-                ];
-            }
-            if ($fraction >= 1.0) {
-                $entry['h'][] = $hash;
-            } else {
-                $entry['p'][] = $hash;
+        $found = false;
+        foreach ($data as $entry) {
+            if (in_array($expected, $entry['h'] ?? [])) {
+                $found = true;
+                break;
             }
         }
-
-        $this->assertCount(1, $entry['n']);
-        $this->assertEquals('3.14', $entry['n'][0]['v']);
-        $this->assertEquals(0.01, $entry['n'][0]['t']);
-        $this->assertEquals(0, $entry['n'][0]['k']);
-        $this->assertEquals(1.0, $entry['n'][0]['f']);
-        $this->assertContains(hash_hmac('sha256', '3.14', $salt), $entry['h']);
+        $this->assertTrue($found, 'Expected hash for "frog" not found in rendered output');
     }
-
-    public function test_fallback_when_no_answers_property() {
-        $salt = '1|99|1';
-        $correctvalue = 'Berlin';
-
-        $alternatives = array_filter(array_map('trim', explode('|', $correctvalue)), 'strlen');
-        $hashes = [];
-        foreach ($alternatives as $alt) {
-            $hashes[] = hash_hmac('sha256', $alt, $salt);
-        }
-
-        $entry = ['h' => $hashes];
-
-        $this->assertEquals(['h' => [hash_hmac('sha256', 'Berlin', $salt)]], $entry);
-    }
-
-    public function test_fallback_with_pipe_alternatives() {
-        $salt = '1|99|1';
-        $correctvalue = 'Berlin|London';
-
-        $alternatives = array_filter(array_map('trim', explode('|', $correctvalue)), 'strlen');
-        $hashes = [];
-        foreach ($alternatives as $alt) {
-            $hashes[] = hash_hmac('sha256', $alt, $salt);
-        }
-
-        $entry = ['h' => $hashes];
-
-        $this->assertCount(2, $entry['h']);
-        $this->assertContains(hash_hmac('sha256', 'Berlin', $salt), $entry['h']);
-        $this->assertContains(hash_hmac('sha256', 'London', $salt), $entry['h']);
-    }
-
-    public function test_wildcard_answer_is_skipped() {
-        $salt = '1|99|1';
-
-        $row1 = new question_answer('Paris', 1.0, '');
-        $row2 = new question_answer('*', 0.0, '');
-
-        $rows = [$row1, $row2];
-
-        $entry = ['h' => [], 'p' => []];
-        foreach ($rows as $row) {
-            $fraction = (float)$row->fraction;
-            if ($fraction <= 0) {
-                continue;
-            }
-            $answertext = $row->answer;
-            if ($answertext === '*' || $answertext === '') {
-                continue;
-            }
-            $hash = hash_hmac('sha256', $answertext, $salt);
-            if ($fraction >= 1.0) {
-                $entry['h'][] = $hash;
-            } else {
-                $entry['p'][] = $hash;
-            }
-        }
-
-        $this->assertCount(1, $entry['h']);
-        $this->assertContains(hash_hmac('sha256', 'Paris', $salt), $entry['h']);
-    }
-
 }

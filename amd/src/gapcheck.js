@@ -18,7 +18,7 @@
  * Accessibility is supported via aria-invalid and title attributes.
  *
  * @module qbehaviour_gapcheck/gapcheck
- * @copyright 2026 Your Name
+ * @copyright 2026 Matthias Giger
  * @license http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  *
  * @example <caption>Enable debug logging from the browser console</caption>
@@ -40,6 +40,41 @@ define(['core/notification'], function(Notification) {
      * @type {boolean}
      */
     var debug = (typeof window !== 'undefined' && window.gapcheckDebug === true);
+
+    /** @type {WeakMap<Element, {data: Object, salt: string}>} */
+    var fieldDataSet = new WeakMap();
+
+    /** Whether the prototype value interceptor has been installed. */
+    var interceptorInstalled = false;
+
+    /**
+     * Install a single interceptor on HTMLInputElement.prototype.value
+     * so any programmatic `input.value = '...'` triggers validation.
+     * Field data is looked up in `fieldDataSet` keyed by the element.
+     */
+    function setupValueInterceptor() {
+        if (interceptorInstalled) {
+            return;
+        }
+        interceptorInstalled = true;
+        var desc = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value');
+        if (!desc || !desc.configurable) {
+            return;
+        }
+        var nativeSet = desc.set;
+        Object.defineProperty(HTMLInputElement.prototype, 'value', {
+            get: function() { return desc.get.call(this); },
+            set: function(val) {
+                nativeSet.call(this, val);
+                var entry = fieldDataSet.get(this);
+                if (entry) {
+                    validateField(this, entry.data, entry.salt);
+                }
+            },
+            configurable: true,
+            enumerable: true,
+        });
+    }
 
     /**
      * Conditionally log a debug message.
@@ -274,28 +309,9 @@ define(['core/notification'], function(Notification) {
         }
         input._gapcheckAttached = true;
 
-        /**
-         * Intercept the native value setter to catch programmatic
-         * changes (e.g. gapfill drag-and-drop). When any code does
-         * input.value = '...', validation fires immediately — no
-         * blur/change/input event needed.
-         */
         if (input instanceof HTMLInputElement) {
-            var proto = HTMLInputElement.prototype;
-            var desc = Object.getOwnPropertyDescriptor(proto, 'value');
-            if (desc && desc.configurable && !input._gapcheckIntercepted) {
-                input._gapcheckIntercepted = true;
-                var nativeSet = desc.set;
-                Object.defineProperty(input, 'value', {
-                    get: function() { return desc.get.call(this); },
-                    set: function(val) {
-                        nativeSet.call(this, val);
-                        validateField(this, fieldData, salt);
-                    },
-                    configurable: true,
-                    enumerable: true,
-                });
-            }
+            fieldDataSet.set(input, {data: fieldData, salt: salt});
+            setupValueInterceptor();
         }
 
         var debouncedValidate = debounce(function() {
@@ -359,17 +375,6 @@ define(['core/notification'], function(Notification) {
                 salt = container.getAttribute('data-pergap-salt');
             } catch (e) {
                 return;
-            }
-
-            var debugAttr = container.getAttribute('data-pergap-debug');
-            if (debugAttr) {
-                try {
-                    var debugData = JSON.parse(debugAttr);
-                    log('[gapcheck] question type:', debugData.questiontype);
-                    log('[gapcheck] questiontext start:', debugData.questiontext);
-                    log('[gapcheck] correct response:', debugData.correctresponse);
-                    log('[gapcheck] hash fields:', debugData.hashfields);
-                } catch (e) {}
             }
 
             if (!hashes || !salt || Object.keys(hashes).length === 0) {

@@ -35,7 +35,7 @@ defined('MOODLE_INTERNAL') || die();
  *    Works in quiz, preview, and embed contexts.
  *
  * @package   qbehaviour_gapcheck
- * @copyright 2026 Your Name
+ * @copyright 2026 Matthias Giger
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class qbehaviour_gapcheck_renderer extends qbehaviour_renderer {
@@ -64,16 +64,10 @@ class qbehaviour_gapcheck_renderer extends qbehaviour_renderer {
         $question = $qa->get_question();
         $data = $this->get_answer_data($qa);
 
-        $debug = [
-            'questiontype' => get_class($question),
-            'hashfields' => array_keys($data),
-        ];
-
         $output .= html_writer::tag('div', '', [
             'class' => 'pergapcheck-hashmap d-none',
             'data-pergap-hashes' => json_encode($data),
             'data-pergap-salt' => qbehaviour_gapcheck::get_salt($qa),
-            'data-pergap-debug' => json_encode($debug),
             'data-gapcheck-label-correct' => get_string('correct', 'qbehaviour_gapcheck'),
             'data-gapcheck-label-partial' => get_string('partiallycorrect', 'qbehaviour_gapcheck'),
             'data-gapcheck-label-incorrect' => get_string('incorrect', 'qbehaviour_gapcheck'),

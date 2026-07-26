@@ -17,7 +17,7 @@ defined('MOODLE_INTERNAL') || die();
  *   - Formulas (qtype_formulas) — extracted tolerance from grading criterion
  *
  * @package   qbehaviour_gapcheck
- * @copyright 2026 Your Name
+ * @copyright 2026 Matthias Giger
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class qbehaviour_gapcheck extends question_behaviour_with_save {

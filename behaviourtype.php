@@ -10,7 +10,7 @@ defined('MOODLE_INTERNAL') || die();
  * interaction model.
  *
  * @package   qbehaviour_gapcheck
- * @copyright 2026 Your Name
+ * @copyright 2026 Matthias Giger
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class qbehaviour_gapcheck_type extends question_behaviour_type {

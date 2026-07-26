@@ -12,7 +12,7 @@ defined('MOODLE_INTERNAL') || die();
  * HTML and never persisted to custom database tables.
  *
  * @package   qbehaviour_gapcheck
- * @copyright 2026 Your Name
+ * @copyright 2026 Matthias Giger
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class provider implements
