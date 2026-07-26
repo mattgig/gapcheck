@@ -1,6 +1,8 @@
 # Gap Check — instant per-gap visual feedback for Moodle quizzes
 
-A question behaviour plugin for Moodle 5.x that gives students immediate visual feedback (coloured background + border) on each individual gap as they type, select, or drag answers — **without grading the attempt, without revealing the correct answer, and without additional server requests**.
+A question behaviour plugin for Moodle 5.x that gives students immediate visual feedback (coloured background + border) on each individual gap as they type, select, or drag answers — *without additional server requests**.
+
+**This question behaviour should not be used for summative tests!**
 
 ## How it works
 
