@@ -1,0 +1,28 @@
+/**
+ * Gapcheck visual feedback styles.
+ *
+ * These classes are applied by the AMD module to input fields
+ * based on client-side hash comparison results.
+ *
+ * @package   qbehaviour_gapcheck
+ * @copyright 2026 Your Name
+ * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
+
+.gapcheck-correct {
+    background-color: var(--gapcheck-correct, #d4edda) !important;
+    border: var(--gapcheck-border-correct, 2px solid #28a745) !important;
+    outline: var(--gapcheck-outline, none) !important;
+}
+
+.gapcheck-partial {
+    background-color: var(--gapcheck-partial, #fff3cd) !important;
+    border: var(--gapcheck-border-partial, 2px dashed #ffc107) !important;
+    outline: var(--gapcheck-outline, none) !important;
+}
+
+.gapcheck-incorrect {
+    background-color: var(--gapcheck-incorrect, #f8d7da) !important;
+    border: var(--gapcheck-border-incorrect, 2px dotted #dc3545) !important;
+    outline: var(--gapcheck-outline, none) !important;
+}
