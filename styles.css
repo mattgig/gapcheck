@@ -9,6 +9,8 @@
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
+/* stylelint-disable declaration-no-important */
+
 .gapcheck-correct {
     background-color: var(--gapcheck-correct, #d4edda) !important;
     border: var(--gapcheck-border-correct, 2px solid #28a745) !important;

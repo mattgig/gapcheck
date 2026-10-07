@@ -1,6 +1,18 @@
 <?php
-
-defined('MOODLE_INTERNAL') || die();
+// This file is part of Moodle - https://moodle.org/
+//
+// Moodle is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Moodle is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
  * Renderer for the gapcheck behaviour.
@@ -39,6 +51,17 @@ defined('MOODLE_INTERNAL') || die();
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class qbehaviour_gapcheck_renderer extends qbehaviour_renderer {
+    /**
+     * Render the controls for the question attempt.
+     *
+     * Outputs the CSS rules (once per page), the hidden hashmap div
+     * with the salted per-gap hashes, the AMD init call with a
+     * fallback for late amd loading, and the submit button.
+     *
+     * @param question_attempt $qa the question attempt
+     * @param question_display_options $options the display options
+     * @return string the rendered controls HTML
+     */
     public function controls(question_attempt $qa, question_display_options $options) {
         if ($options->readonly) {
             return '';
@@ -48,7 +71,8 @@ class qbehaviour_gapcheck_renderer extends qbehaviour_renderer {
         $output = '';
         if (!$cssadded) {
             $cssadded = true;
-            $output .= html_writer::tag('style',
+            $output .= html_writer::tag(
+                'style',
                 '.gapcheck-correct{background-color:var(--gapcheck-correct,#d4edda)!important;'
                 . 'border:var(--gapcheck-border-correct,2px solid #28a745)!important;'
                 . 'outline:var(--gapcheck-outline,none)!important}'
@@ -123,7 +147,7 @@ class qbehaviour_gapcheck_renderer extends qbehaviour_renderer {
                     if ($subq instanceof qtype_multichoice_single_question) {
                         $c = $subq->get_correct_response();
                         if (isset($c['answer'])) {
-                            $h = hash_hmac('sha256', (string)$c['answer'], $salt);
+                            $h = hash_hmac('sha256', (string) $c['answer'], $salt);
                             $data[$prefixed]['h'][] = $h;
                         }
                         $orderstr = $qa->get_step(0)->get_qt_var('sub' . $i . '_order');
@@ -137,9 +161,9 @@ class qbehaviour_gapcheck_renderer extends qbehaviour_renderer {
                                 continue;
                             }
                             $ans = $subq->answers[$ansid];
-                            $fraction = (float)$ans->fraction;
+                            $fraction = (float) $ans->fraction;
                             if ($fraction > 0 && $fraction < 1.0) {
-                                $h = hash_hmac('sha256', (string)$idx, $salt);
+                                $h = hash_hmac('sha256', (string) $idx, $salt);
                                 $data[$prefixed]['p'][] = $h;
                             }
                         }
@@ -171,7 +195,7 @@ class qbehaviour_gapcheck_renderer extends qbehaviour_renderer {
             $answerrows = $this->get_question_answers($question, $fieldname);
             if (!empty($answerrows)) {
                 $data[$prefixed] = $this->process_answer_rows($answerrows, $salt);
-            } elseif ($singlefield && isset($question->answers) && is_array($question->answers) && count($question->answers) > 0) {
+            } else if ($singlefield && isset($question->answers) && is_array($question->answers) && count($question->answers) > 0) {
                 $ci = isset($question->usecase) && $question->usecase == 0;
                 $data[$prefixed] = $this->process_answer_rows($question->answers, $salt, $ci);
             } else {
@@ -196,7 +220,7 @@ class qbehaviour_gapcheck_renderer extends qbehaviour_renderer {
      */
     private function get_question_answers(object $question, string $fieldname): array {
         if (preg_match('/^sub(\d+)_/', $fieldname, $m)) {
-            $idx = (int)$m[1];
+            $idx = (int) $m[1];
             $subq = $this->get_subquestion($question, $idx);
             if ($subq && isset($subq->answers)) {
                 return $subq->answers;
@@ -251,16 +275,16 @@ class qbehaviour_gapcheck_renderer extends qbehaviour_renderer {
         foreach ($question->parts as $part) {
             $evaluated = $part->evaluatedanswers ?? [];
             $correctness = $part->correctness ?? '';
-            $numbox = (int)($part->numbox ?? 1);
+            $numbox = (int) ($part->numbox ?? 1);
             $partindex = $part->partindex ?? 0;
 
             $tolerance = 0;
             $tolerancetype = 0;
             if (preg_match('/_relerr\s*<[=]?\s*(\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)/', $correctness, $m)) {
-                $tolerance = (float)$m[1] * 100;
+                $tolerance = (float) $m[1] * 100;
                 $tolerancetype = 1;
-            } elseif (preg_match('/_err\s*<[=]?\s*(\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)/', $correctness, $m)) {
-                $tolerance = (float)$m[1];
+            } else if (preg_match('/_err\s*<[=]?\s*(\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)/', $correctness, $m)) {
+                $tolerance = (float) $m[1];
                 $tolerancetype = 0;
             }
 
@@ -271,7 +295,7 @@ class qbehaviour_gapcheck_renderer extends qbehaviour_renderer {
                 if ($value === null) {
                     continue;
                 }
-                $valuestr = (string)$value;
+                $valuestr = (string) $value;
 
                 $entry = ['h' => [hash_hmac('sha256', $valuestr, $salt)]];
                 if ($tolerance > 0) {
@@ -302,7 +326,7 @@ class qbehaviour_gapcheck_renderer extends qbehaviour_renderer {
         $entry = ['h' => [], 'p' => [], 'n' => []];
 
         foreach ($answerrows as $row) {
-            $fraction = (float)$row->fraction;
+            $fraction = (float) $row->fraction;
             if ($fraction <= 0) {
                 continue;
             }
@@ -325,8 +349,8 @@ class qbehaviour_gapcheck_renderer extends qbehaviour_renderer {
                 $hashes[] = hash_hmac('sha256', $alt, $salt);
             }
 
-            $tolerance = isset($row->tolerance) ? (float)$row->tolerance : 0;
-            $tolerancetype = isset($row->tolerancetype) ? (int)$row->tolerancetype : 0;
+            $tolerance = isset($row->tolerance) ? (float) $row->tolerance : 0;
+            $tolerancetype = isset($row->tolerancetype) ? (int) $row->tolerancetype : 0;
 
             if ($tolerance > 0 && is_numeric($answertext)) {
                 $entry['n'][] = [

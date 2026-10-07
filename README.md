@@ -66,18 +66,6 @@ When feedback is shown, the input's `aria-invalid` attribute is set to `"false"`
 
 No plugin settings page. The behaviour can be selected per quiz or set as default via **Site administration → Plugins → Question behaviours → Manage question behaviours**.
 
-## Debug mode
-
-Open the browser console and run:
-
-```js
-window.gapcheckDebug = true;
-// Then reload the quiz page, or re-initialise:
-require(['qbehaviour_gapcheck/gapcheck'], function(m) { m.setDebug(true); });
-```
-
-With debug enabled, every hash comparison is logged to the console showing the field name, input value, computed hash, and the full/partial hash lists.
-
 ## Privacy
 
 This plugin stores no personal data and uses no custom database tables (`\core_privacy\local\metadata\null_provider`). It embeds salted hashes of correct answers in the page HTML, which are discarded when the page is unloaded. The salt uses the user ID, attempt usage ID, and question slot — all of which are already part of normal Moodle operation.

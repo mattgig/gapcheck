@@ -20,27 +20,8 @@
  * @module qbehaviour_gapcheck/gapcheck
  * @copyright 2026 Matthias Giger
  * @license http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
- *
- * @example <caption>Enable debug logging from the browser console</caption>
- * // Set this flag to true before the module initialises, or toggle
- * // it at any time to see [gapcheck] log output:
- * window.gapcheckDebug = true;
- *
- * // You can also run code to see all fields that match:
- * // require(['qbehaviour_gapcheck/gapcheck'], function(m) { m.setDebug(true); });
  */
 define(['core/notification'], function(Notification) {
-
-    /**
-     * Debug logging flag.
-     *
-     * Set to `true` to enable [gapcheck] console.log output.
-     * Can be toggled at runtime via `gapcheckDebug` global or
-     * by calling the exported `setDebug()` function.
-     * @type {boolean}
-     */
-    var debug = (typeof window !== 'undefined' && window.gapcheckDebug === true);
-
     /** @type {WeakMap<Element, {data: Object, salt: string}>} */
     var fieldDataSet = new WeakMap();
 
@@ -63,7 +44,9 @@ define(['core/notification'], function(Notification) {
         }
         var nativeSet = desc.set;
         Object.defineProperty(HTMLInputElement.prototype, 'value', {
-            get: function() { return desc.get.call(this); },
+            get: function() {
+                return desc.get.call(this);
+            },
             set: function(val) {
                 nativeSet.call(this, val);
                 var entry = fieldDataSet.get(this);
@@ -74,18 +57,6 @@ define(['core/notification'], function(Notification) {
             configurable: true,
             enumerable: true,
         });
-    }
-
-    /**
-     * Conditionally log a debug message.
-     *
-     * Only writes to the console when `debug` is true.
-     * Accepts the same arguments as console.log.
-     */
-    function log() {
-        if (debug) {
-            console.log.apply(console, arguments);
-        }
     }
 
     /**
@@ -106,9 +77,9 @@ define(['core/notification'], function(Notification) {
         ).then(function(cryptoKey) {
             return crypto.subtle.sign('HMAC', cryptoKey, encoder.encode(message));
         }).then(function(signature) {
-            return Array.from(new Uint8Array(signature))
-                .map(function(b) { return b.toString(16).padStart(2, '0'); })
-                .join('');
+            return Array.from(new Uint8Array(signature)).map(function(b) {
+                return b.toString(16).padStart(2, '0');
+            }).join('');
         });
     }
 
@@ -256,7 +227,9 @@ define(['core/notification'], function(Notification) {
             return;
         }
 
-        var h = [], p = [], n = null;
+        var h = [],
+            p = [],
+            n = null;
         if (typeof fieldData === 'object' && !Array.isArray(fieldData) && fieldData.h !== undefined) {
             h = toArray(fieldData.h);
             p = toArray(fieldData.p);
@@ -275,7 +248,6 @@ define(['core/notification'], function(Notification) {
 
         var compareValue = (fieldData.ci) ? value.toLowerCase() : value;
         hmacSha256(salt, compareValue).then(function(computedHash) {
-            log('[gapcheck] field', fieldName, 'value:', value, 'compare:', compareValue, 'hash:', computedHash, 'full:', h, 'partial:', p, 'ci:', fieldData.ci);
             if (h.indexOf(computedHash) !== -1) {
                 setInputState(input, 'full');
             } else if (p.indexOf(computedHash) !== -1) {
@@ -283,6 +255,7 @@ define(['core/notification'], function(Notification) {
             } else {
                 setInputState(input, 'none');
             }
+            return;
         }).catch(function(err) {
             clearInputState(input);
             Notification.exception(err);
@@ -335,15 +308,6 @@ define(['core/notification'], function(Notification) {
 
     return {
         /**
-         * Enable or disable debug logging at runtime.
-         * @param {boolean} val true to enable console logging
-         */
-        setDebug: function(val) {
-            debug = !!val;
-            log('[gapcheck] debug logging', debug ? 'enabled' : 'disabled');
-        },
-
-        /**
          * Initialize gapcheck for a given outer question container.
          *
          * Reads the embedded JSON hash map from the
@@ -354,9 +318,7 @@ define(['core/notification'], function(Notification) {
          * @param {string} outerDivId the ID of the question container
          */
         init: function(outerDivId) {
-            log('[gapcheck] init called, outerDivId:', outerDivId);
             if (!window.crypto || !window.crypto.subtle) {
-                log('[gapcheck] crypto.subtle unavailable (requires HTTPS)');
                 return;
             }
             var outerDiv = document.getElementById(outerDivId);
@@ -378,7 +340,6 @@ define(['core/notification'], function(Notification) {
             }
 
             if (!hashes || !salt || Object.keys(hashes).length === 0) {
-                log('[gapcheck] no hash data for any field');
                 return;
             }
 
@@ -393,10 +354,7 @@ define(['core/notification'], function(Notification) {
                     input.setAttribute('data-gapcheck-label-correct', correctLabel);
                     input.setAttribute('data-gapcheck-label-partial', partialLabel);
                     input.setAttribute('data-gapcheck-label-incorrect', incorrectLabel);
-                    log('[gapcheck] attaching events for field:', name, 'data:', JSON.stringify(hashes[name]));
                     attachFieldEvents(input, hashes[name], salt);
-                } else if (name) {
-                    log('[gapcheck] no hash data for field:', name);
                 }
             });
         }
